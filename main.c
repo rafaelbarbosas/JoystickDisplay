@@ -14,6 +14,7 @@ void ADC_config(void);
 void TA0_config(void);
 void GPIO_config(void);
 
+void write_base(char address);
 void write_joyst_lcd(char address, int avg_int, float avg_flt,
                      float max, float min);
 
@@ -44,7 +45,10 @@ int main(void)
     TA0_config();
     ADC_config();
     char address = setup_lcd();
+    write_base(address);
+
     __enable_interrupt();
+
     while (TRUE)
     {
         ADC12CTL0 |= ADC12ENC; //Habilitar ADC
@@ -116,24 +120,29 @@ __interrupt void adc_int(void)
     }
 }
 
+void write_base(char address){
+    set_cursor(address, 0, 0);
+    write_string(address, "An=d.dddV   NNNN");
+
+    set_cursor(address, 1, 0);
+    write_string(address, "Mn=d.dd  Mn=d.dd");
+}
+
 void write_joyst_lcd(char address, int avg_int, float avg_flt,
                      float max, float min){
-    clear_lcd(address);
-    retornar(address);
-    write_char(address, 'A');
+    set_cursor(address, 0, 1);
     write_char(address, chanel+ '0');
-    write_char(address, '=');
+
+    set_cursor(address, 0, 3);
     write_float(address, avg_flt, 3);
-    write_char(address, 'V');
+    
     set_cursor(address, 0, 12);
     write_dec12(address, avg_int);
 
-    set_cursor(address, 1, 0);
-    write_string(address, "Mn=");
+    set_cursor(address, 1, 3);
     write_float(address, min, 2);
 
-    set_cursor(address, 1, 9);
-    write_string(address, "Mx=");
+    set_cursor(address, 1, 12);
     write_float(address, max, 2);
 }
 
