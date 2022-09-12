@@ -1,6 +1,6 @@
 // Ler sinais de um joystick
 // Armazenar em ADC12MEM1 e 2
-// Conversão em 100 Hz por canal
+// Conversï¿½o em 100 Hz por canal
 // Usar TA0.1
 
 #include <msp430.h> 
@@ -17,14 +17,14 @@ void GPIO_config(void);
 void write_joyst_lcd(char address, int avg_int, float avg_flt,
                      float max, float min);
 
-// Variáveis globais
+// Variï¿½veis globais
 volatile int vrx[QTD];  //Vetor x
 volatile int vry[QTD];  //Vetor y
 volatile int media_x;   // media vetor x
 volatile int media_y;   // media vetor y
 volatile int index;
 
-volatile int chanel = 1;// canal que está sendo mostrado
+volatile int chanel = 1;// canal que estï¿½ sendo mostrado
 
 volatile int flag;      // flag
 
@@ -52,7 +52,7 @@ int main(void)
         while (flag == 0)
             ; //Esperar flag - calculo da media
 
-        ADC12CTL0 &= ~ADC12ENC; //Parar as conversões
+        ADC12CTL0 &= ~ADC12ENC; //Parar as conversï¿½es
 
         flag = 0;
         index = 0; //Zerar indexador
@@ -108,7 +108,7 @@ __interrupt void adc_int(void)
     if(index == QTD){
         flag = 1;
 
-        // calcula média
+        // calcula mï¿½dia
         media_x = (vrx[0]+vrx[1]+vrx[2]+vrx[3]);
         media_x /= 4;
         media_y = (vry[0]+vry[1]+vry[2]+vry[3])/4;
@@ -124,6 +124,7 @@ void write_joyst_lcd(char address, int avg_int, float avg_flt,
     write_char(address, chanel+ '0');
     write_char(address, '=');
     write_float(address, avg_flt, 3);
+    write_char(address, 'V');
     set_cursor(address, 0, 12);
     write_dec12(address, avg_int);
 
@@ -140,16 +141,16 @@ void ADC_config(void)
 {
     ADC12CTL0 &= ~ADC12ENC; //Desabilitar para configurar
     ADC12CTL0 = ADC12ON; //Ligar ADC
-    ADC12CTL1 = ADC12CONSEQ_3 | //Modo sequência de canais
+    ADC12CTL1 = ADC12CONSEQ_3 | //Modo sequï¿½ncia de canais
             ADC12SHS_1 | //Selecionar TA0.1
             ADC12CSTARTADD_1 | //Resultado em ADC12MEM1
             ADC12SSEL_3; //ADC12CLK = SMCLK
     ADC12CTL2 = ADC12RES_2; //Modo 12 bits
     ADC12MCTL1 = ADC12SREF_0 | ADC12INCH_1; //Config MEM1
-    ADC12MCTL2 = ADC12EOS | ADC12SREF_0 | ADC12INCH_2; //MEM2 = última
+    ADC12MCTL2 = ADC12EOS | ADC12SREF_0 | ADC12INCH_2; //MEM2 = ï¿½ltima
     P6SEL |= BIT2 | BIT1; // Desligar digital de P6.2,1
     ADC12CTL0 |= ADC12ENC; //Habilitar ADC12
-    ADC12IE |= ADC12IE2; //Hab interrupção MEM2
+    ADC12IE |= ADC12IE2; //Hab interrupï¿½ï¿½o MEM2
 }
 
 void TA0_config(void)
