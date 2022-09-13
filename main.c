@@ -62,7 +62,7 @@ int main(void)
         index = 0; //Zerar indexador
 
         volt_x = (media_x * 3.3)/4095;
-        volt_y = ((1024 - media_y) * 3.3)/1024;
+        volt_y = ((4095 - media_y) * 3.3)/4095;
 
         if(volt_x < min_x)
             min_x = volt_x;
@@ -115,7 +115,7 @@ __interrupt void adc_int(void)
         // calcula media
         media_x = (vrx[0]+vrx[1]+vrx[2]+vrx[3]);
         media_x /= 4;
-        media_y = (vry[0]+vry[1]+vry[2]+vry[3])/4;
+        media_y = (vry[0]+vry[1]+vry[2]+vry[3]);
         media_y /= 4;
     }
 }
