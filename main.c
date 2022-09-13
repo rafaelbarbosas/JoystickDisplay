@@ -11,12 +11,14 @@
 #define QTD 4 //Nr de amostras por canal
 
 void ADC_config(void);
+void USCI_A0_config(void);
 void TA0_config(void);
 void GPIO_config(void);
 
 void write_base_lcd(char address);
 void write_joyst_lcd(char address, int avg_int, float avg_flt,
                      float max, float min);
+void write_base_uart(void);
 
 // Variaveis globais
 volatile int vrx[QTD];  //Vetor x
@@ -44,8 +46,12 @@ int main(void)
     GPIO_config();
     TA0_config();
     ADC_config();
+    USCI_A0_config();
+
     char address = setup_lcd();
     write_base_lcd(address);
+
+    write_base_uart();
 
     __enable_interrupt();
 
@@ -135,7 +141,7 @@ void write_joyst_lcd(char address, int avg_int, float avg_flt,
 
     set_cursor(address, 0, 3);
     write_float(address, avg_flt, 3);
-    
+
     set_cursor(address, 0, 12);
     write_dec12(address, avg_int);
 
@@ -144,6 +150,18 @@ void write_joyst_lcd(char address, int avg_int, float avg_flt,
 
     set_cursor(address, 1, 12);
     write_float(address, max, 2);
+}
+
+void write_base_uart(void){
+    char ch, letra_rx;
+    while(TRUE){
+        for(ch = 'A'; ch <= 'Z'; ch++){
+            while ( (UCA0IFG&UCTXIFG)==0); //Esperar TXIFG=1
+            UCA0TXBUF=ch;
+            while ( (UCA0IFG&UCRXIFG)==0); //Esperar RXIFG=1
+            letra_rx=UCA0RXBUF;
+        }
+    }
 }
 
 void ADC_config(void)
@@ -160,6 +178,17 @@ void ADC_config(void)
     P6SEL |= BIT2 | BIT1; // Desligar digital de P6.2,1
     ADC12CTL0 |= ADC12ENC; //Habilitar ADC12
     ADC12IE |= ADC12IE2; //Hab interrupcao MEM2aa
+}
+
+// Configurar USCI_A0
+void USCI_A0_config(void){
+    UCA0CTL1 = UCSWRST; //RST=1 para USCI_A0
+    UCA0CTL0 = 0; //sem paridade, 8 bits, 1 stop, modo UART
+    UCA0STAT = UCLISTEN; //Loop Back
+    UCA0BRW = 3; // Divisor
+    UCA0MCTL = UCBRS_3; //Modulador = 3 e UCOS=0
+    UCA0CTL1 = UCSSEL_1; //RST=0 e Selecionar ACLK
+    // UCA0IE = UCRXIE; //Hab. Interrup recepção
 }
 
 void TA0_config(void)
