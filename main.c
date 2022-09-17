@@ -58,10 +58,14 @@ void servo_config(void);
 void write_base_lcd(char address);
 void write_joyst_lcd(char address, int avg_int, float avg_flt, float max,
                      float min);
+void write_string_uart(char string[]);
 void write_base_uart(void);
-void write_joyst_uart(char address, int avg_int, float avg_flt, float max,
-                      float min);
+void write_joyst_uart(int avg_int_a1, float avg_flt_a1,
+                        int avg_int_a2, float avg_flt_a2);
 void write_servo(float measure);
+
+void int_to_string_4_digits(char string[], int number);
+void float_to_string(char string[], float flo, char precis);
 
 // Variaveis globais
 volatile int vrx[QTD];  //Vetor x
@@ -73,6 +77,8 @@ volatile int index;
 volatile int chanel = 1;   // canal que esta sendo mostrado
 
 volatile int flag;      // flag
+
+volatile int uart_counter = 0;
 
 int main(void)
 {
@@ -127,8 +133,6 @@ int main(void)
         {
             // atualizar o LCD com o canal A1
             write_joyst_lcd(address, media_x, volt_x, max_x, min_x);
-            // atualizar UART  com o canal A1
-            write_joyst_uart(address, media_x, volt_x, max_x, min_x);
             // atualizar servo com o canal A1
             write_servo(volt_x);
         }
@@ -137,11 +141,11 @@ int main(void)
         {
             // atualizar o LCD com o canal A2
             write_joyst_lcd(address, media_y, volt_y, max_y, min_y);
-            // atualizar UART  com o canal A2
-            write_joyst_uart(address, media_y, volt_y, max_y, min_y);
             // atualizar servo com o canal A2
             write_servo(volt_y);
         }
+        // Atualizar UART
+        write_joyst_uart(media_x, volt_x, media_y, volt_y);
 
         if ((P6IN & BIT3) == 0)
         {
@@ -204,37 +208,49 @@ void write_joyst_lcd(char address, int avg_int, float avg_flt, float max,
     write_float(address, max, 2);
 }
 
-void write_base_uart(void)
-{
-    // TO-DO
-    // teste
-    volatile char ch, letra_rx;
-    while (TRUE)
-    {
-        for (ch = 'A'; ch <= 'Z'; ch++)
-        {
-            while ((UCA1IFG & UCTXIFG) == 0)
-                ; //Esperar TXIFG=1
-            UCA1TXBUF = ch;
-            while ((UCA1IFG & UCRXIFG) == 0)
-                ; //Esperar RXIFG=1
-            letra_rx = UCA1RXBUF;
-
-            if(letra_rx != ch){
-                led_vd();
-                led_VM();
-            } else {
-                led_VD();
-                led_vm();
-            }
-        }
+void write_string_uart(char string[]){
+    int i = 0;
+    while(string[i] != 0){
+        while ((UCA1IFG & UCTXIFG) == 0)
+            ; //Esperar TXIFG=1
+        UCA1TXBUF = string[i];
+        i++;
     }
 }
 
-void write_joyst_uart(char address, int avg_int, float avg_flt, float max,
-                      float min)
+void write_base_uart(void)
 {
-    // TO - DO
+    char string[] = "cont: ---Canal A1---- ---Canal A2----                                  \n";
+    write_string_uart(string);
+}
+
+void write_joyst_uart(int avg_int_a1, float avg_flt_a1,
+                        int avg_int_a2, float avg_flt_a2)
+{
+    char string_4[] = "....";
+    char string_5[] = ".....";
+
+    int_to_string_4_digits(string_4, uart_counter);
+    write_string_uart(string_4);
+    write_string_uart(": ");
+
+    int_to_string_4_digits(string_4, avg_int_a1);
+    write_string_uart(string_4);
+    write_string_uart(" ---> ");
+    float_to_string(string_5, avg_flt_a1,3);
+    write_string_uart(string_5);
+    write_string_uart("V     ");
+
+    int_to_string_4_digits(string_4, avg_int_a2);
+    write_string_uart(string_4);
+    write_string_uart(" ---> ");
+    float_to_string(string_5, avg_flt_a2,3);
+    write_string_uart(string_5);
+    write_string_uart("V\n");
+
+    uart_counter++;
+    if(uart_counter >= 10000)
+        uart_counter = 0;
 }
 
 void write_servo(float measure)
@@ -305,4 +321,54 @@ void GPIO_config(void)
     P6DIR &= ~BIT3; //P6.3 = SW
     P6REN |= BIT3;
     P6OUT |= BIT3;
+}
+
+void int_to_string_4_digits(char string[], int number){
+    string[0] = '0';
+    string[0] = '1';
+    string[0] = '2';
+    string[0] = '3';
+
+    char current;
+    int i, j=0;
+    for(i=1000; i>0; i/=10){
+        current = number/i;
+        string[++j] = current+ '0';
+        number -= current*i;
+    }
+}
+
+void float_to_string(char string[], float flo, char precis){
+    string[0] = 'd';
+    string[1] = 'd';
+    string[2] = 'd';
+    string[3] = ',';
+    string[4] = 'd';
+
+    if(precis < 1){
+        precis = 1;
+    }
+
+    if(precis > 3){
+        precis = 3;
+    }
+
+    flo = flo*1000;
+    string[4] = flo/1000+ '0';
+    int dec = ((int)flo)%1000;
+
+    int i;
+    int j = 0;
+    char current;
+    for(i = 100; i > 0; i/=10){
+        precis--;
+        current = dec/i;
+        string[++j] = current+ '0';
+        dec -= current*i;
+
+        if(precis==0)
+            return;
+    }
+
+    return;
 }
