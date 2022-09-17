@@ -231,7 +231,7 @@ void write_string_uart(char string[])
 void write_base_uart(void)
 {
     char string[] =
-            "cont: ---Canal A1----     ---Canal A2----                                  \n\r";
+            "\n\rcont: ---Canal A1----     ---Canal A2----                                  \n\r";
     write_string_uart(string);
 }
 
