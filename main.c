@@ -231,15 +231,15 @@ void write_string_uart(char string[])
 void write_base_uart(void)
 {
     char string[] =
-            "cont: ---Canal A1---- ---Canal A2----                                  \n";
+            "cont: ---Canal A1----     ---Canal A2----                                  \n\r";
     write_string_uart(string);
 }
 
 void write_joyst_uart(int avg_int_a1, float avg_flt_a1, int avg_int_a2,
                       float avg_flt_a2)
 {
-    char string_4[] = "....";
-    char string_5[] = ".....";
+    char string_4[] = "0000";
+    char string_5[] = "d,ddd";
 
     int_to_string_4_digits(string_4, uart_counter);
     write_string_uart(string_4);
@@ -247,17 +247,17 @@ void write_joyst_uart(int avg_int_a1, float avg_flt_a1, int avg_int_a2,
 
     int_to_string_4_digits(string_4, avg_int_a1);
     write_string_uart(string_4);
-    write_string_uart(" ---> ");
+    write_string_uart(" --> ");
     float_to_string(string_5, avg_flt_a1, 3);
     write_string_uart(string_5);
     write_string_uart("V     ");
 
     int_to_string_4_digits(string_4, avg_int_a2);
     write_string_uart(string_4);
-    write_string_uart(" ---> ");
+    write_string_uart(" --> ");
     float_to_string(string_5, avg_flt_a2, 3);
     write_string_uart(string_5);
-    write_string_uart("V\n");
+    write_string_uart("V                                  \n\r");
 
     uart_counter++;
     if (uart_counter >= 10000)
@@ -289,16 +289,22 @@ void ADC_config(void)
 // Configurar USCI_A0
 void USCI_A1_config(void)
 {
-    UCA1CTL1 = UCSWRST; //RST=1 para USCI_A1
+    UCA1CTL1 = UCSSEL_1 | UCSWRST; //RST=1 para USCI_A1 - Selecionar ACLK
     UCA1CTL0 = 0; //sem paridade, 8 bits, 1 stop, modo UART
-    UCA1STAT = UCLISTEN; //Loop Back
     UCA1BRW = 3; // Divisor
     UCA1MCTL = UCBRS_3; //Modulador = 3 e UCOS=0
-    P4SEL |= BIT3 | BIT0; //Disponibilizar P4.3 e P4.0
+
+    UCA1STAT = UCLISTEN; //Loop Back
+
+    P4DIR |=  BIT4;         //P4.4 saida
+    P4DIR &= ~BIT5;         //P4.5 entrada
+    P4SEL |= BIT5 | BIT4; //Disponibilizar P4.4 e P4.5
+
     PMAPKEYID = 0X02D52; //Liberar mapeamento de P4
-    P4MAP0 = PM_UCA1TXD; //P4.0 = TXD
-    P4MAP3 = PM_UCA1RXD; //P4.3 = RXD
-    UCA1CTL1 = UCSSEL_1; //RST=0 e Selecionar ACLK
+    P4MAP4 = PM_UCA1TXD; //P4.0 = TXD
+    P4MAP5 = PM_UCA1RXD; //P4.3 = RXD
+
+    UCA1CTL1 &= ~ UCSWRST;  //UCSI sai de Reset
     // UCA1IE = UCRXIE; //Hab. Interrup recepção
 }
 
@@ -359,26 +365,29 @@ void GPIO_config(void)
 void int_to_string_4_digits(char string[], int number)
 {
     string[0] = '0';
-    string[0] = '1';
-    string[0] = '2';
-    string[0] = '3';
+    string[1] = '0';
+    string[2] = '0';
+    string[3] = '0';
 
-    char current;
-    int i, j = 0;
-    for (i = 1000; i > 0; i /= 10)
+    volatile char current;
+    volatile int unit = 1000;
+    volatile int j = 0;
+    while (unit > 0)
     {
-        current = number / i;
-        string[++j] = current + '0';
-        number -= current * i;
+        current = number / unit;
+        string[j++] = current + '0';
+        number -= current * unit;
+
+        unit /= 10;
     }
 }
 
 void float_to_string(char string[], float flo, char precis)
 {
     string[0] = 'd';
-    string[1] = 'd';
+    string[1] = ',';
     string[2] = 'd';
-    string[3] = ',';
+    string[3] = 'd';
     string[4] = 'd';
 
     if (precis < 1)
@@ -392,17 +401,17 @@ void float_to_string(char string[], float flo, char precis)
     }
 
     flo = flo * 1000;
-    string[4] = flo / 1000 + '0';
+    string[0] = flo / 1000 + '0';
     int dec = ((int) flo) % 1000;
 
     int i;
-    int j = 0;
+    int j = 2;
     char current;
     for (i = 100; i > 0; i /= 10)
     {
         precis--;
         current = dec / i;
-        string[++j] = current + '0';
+        string[j++] = current + '0';
         dec -= current * i;
 
         if (precis == 0)
