@@ -72,15 +72,13 @@ void int_to_string_4_digits(char string[], int number);
 void float_to_string(char string[], float flo, char precis);
 
 // Variaveis globais
-volatile int vrx[QTD];  //Vetor x
-volatile int vry[QTD];  //Vetor y
+volatile int v[2*QTD];  //Vetor
+                        // pares -> v_x (A1)
+                        // impares -> v_y (A2)
 volatile int media_x;   // media vetor x
 volatile int media_y;   // media vetor y
-volatile int index;
 
 volatile int chanel = 1;   // canal que esta sendo mostrado
-
-volatile int flag;      // flag
 
 volatile int uart_counter = 0;
 
@@ -117,13 +115,16 @@ int main(void)
     {
         ADC12CTL0 |= ADC12ENC; //Habilitar ADC
 
-        while (flag == 0)
-            ; //Esperar flag - calculo da media
+        while (DMAIFG == 0)
+            ; //Esperar flag - conversoes
+
+        // calcula media
+        media_x = (v[0] + v[2] + v[4] + v[6]);
+        media_x = media_x >> 2;
+        media_y = (v[1] + v[3] + v[5] + v[7]);
+        media_y =  media_y >> 2;
 
         ADC12CTL0 &= ~ADC12ENC; //Parar as conversoes
-
-        flag = 0;
-        index = 0; //Zerar indexador
 
         volt_x = (media_x * 3.3) / 4095;
         volt_y = ((4095 - media_y) * 3.3) / 4095;
@@ -168,26 +169,6 @@ int main(void)
     }
 }
 
-//#pragma vector = 54
-#pragma vector = ADC12_VECTOR
-__interrupt void adc_int(void)
-{
-    vrx[index] = ADC12MEM1;
-    vry[index] = ADC12MEM2;
-    index++;
-
-    if (index == QTD)
-    {
-        flag = 1;
-
-        // calcula media
-        media_x = (vrx[0] + vrx[1] + vrx[2] + vrx[3]);
-        media_x /= 4;
-        media_y = (vry[0] + vry[1] + vry[2] + vry[3]);
-        media_y /= 4;
-    }
-}
-
 void write_base_lcd(char address)
 {
     set_cursor(address, 0, 0);
@@ -221,9 +202,9 @@ void write_string_uart(char string[])
     int i = 0;
     while (string[i] != 0)
     {
+        UCA1TXBUF = string[i];
         while ((UCA1IFG & UCTXIFG) == 0)
             ; //Esperar TXIFG=1
-        UCA1TXBUF = string[i];
         i++;
     }
 }
@@ -279,11 +260,16 @@ void ADC_config(void)
             ADC12CSTARTADD_1 | //Resultado em ADC12MEM1
             ADC12SSEL_3; //ADC12CLK = SMCLK
     ADC12CTL2 = ADC12RES_2; //Modo 12 bits
-    ADC12MCTL1 = ADC12SREF_0 | ADC12INCH_1; //Config MEM1
-    ADC12MCTL2 = ADC12EOS | ADC12SREF_0 | ADC12INCH_2; //MEM2 = ultima
+
+    ADC12MCTL1 = ADC12SREF_0 | ADC12INCH_1; //Config MEM 1,3,5,7
+    ADC12MCTL7 = ADC12MCTL5 = ADC12MCTL3 = ADC12MCTL1;
+    ADC12MCTL2 = ADC12SREF_0 | ADC12INCH_2; //Config MEM 2,4,6,8
+    ADC12MCTL8 = ADC12MCTL6 = ADC12MCTL4 = ADC12MCTL2;
+    ADC12MCTL8 |= ADC12EOS; //MEM8 = ultima ADC12EOS
+
     P6SEL |= BIT2 | BIT1; // Desligar digital de P6.2,1
     ADC12CTL0 |= ADC12ENC; //Habilitar ADC12
-    ADC12IE |= ADC12IE2; //Hab interrupcao MEM2aa
+//    ADC12IE |= ADC12IE2; //Hab interrupcao MEM2aa
 }
 
 // Configurar USCI_A0
@@ -323,16 +309,17 @@ void servo_config(void)
 
 void config_dma_adc(void)
 {
-//    DMACTL0 |= DMA0TSEL_20; // Disparo = UCA1RXIFG
-//    DMA0CTL = DMADT_0    | //Modo Simples
-//            DMADSTINCR_3 | //Ponteiro destino, incrementar
-//            DMASRCINCR_0 | //Ponteiro fonte fixo
-//            DMADSTBYTE   | //Destino opera com bytes
-//            DMASRCBYTE;    //Fonte opera com bytes
-//    DMA0SA = UCA1RXBUF_ADR; //Fonte = UCA1RXBUF
-//    DMA0DA = v1; //Destino = vetor v1
-//    DMA0SZ = QTD; //Quantidade de transferências
-//    DMA0CTL |= DMAEN; //Habilitar DMA1
+    DMACTL0 |= DMA0TSEL_24; // Disparo = ADC12IFG
+    DMA0CTL = DMADT_2    | //Modo rajada com repeticao
+            DMADSTINCR_3 | //Ponteiro destino incrementando
+            DMASRCINCR_3 ; //Ponteiro fonte incrementando
+            //DMAIE;         //Habilita interrupcao
+                           //Destino opera com words
+                           //Fonte opera com words
+    DMA0SA = &ADC12MEM1;
+    DMA0DA = v; //Destino = v
+    DMA0SZ = 8; //Quantidade de transferências
+    DMA0CTL |= DMAEN; //Habilitar DMA0
 }
 
 void config_dma_servo(void){
