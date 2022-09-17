@@ -55,13 +55,17 @@ void TA0_config(void);
 void GPIO_config(void);
 void servo_config(void);
 
+void config_dma_adc(void);
+void config_dma_servo(void);
+void config_dma_serial(void);
+
 void write_base_lcd(char address);
 void write_joyst_lcd(char address, int avg_int, float avg_flt, float max,
                      float min);
 void write_string_uart(char string[]);
 void write_base_uart(void);
-void write_joyst_uart(int avg_int_a1, float avg_flt_a1,
-                        int avg_int_a2, float avg_flt_a2);
+void write_joyst_uart(int avg_int_a1, float avg_flt_a1, int avg_int_a2,
+                      float avg_flt_a2);
 void write_servo(float measure);
 
 void int_to_string_4_digits(char string[], int number);
@@ -97,6 +101,10 @@ int main(void)
     ADC_config();
     USCI_A1_config();
     servo_config();
+
+    config_dma_adc();
+    config_dma_servo();
+    config_dma_serial();
 
     char address = setup_lcd();
     write_base_lcd(address);
@@ -208,9 +216,11 @@ void write_joyst_lcd(char address, int avg_int, float avg_flt, float max,
     write_float(address, max, 2);
 }
 
-void write_string_uart(char string[]){
+void write_string_uart(char string[])
+{
     int i = 0;
-    while(string[i] != 0){
+    while (string[i] != 0)
+    {
         while ((UCA1IFG & UCTXIFG) == 0)
             ; //Esperar TXIFG=1
         UCA1TXBUF = string[i];
@@ -220,12 +230,13 @@ void write_string_uart(char string[]){
 
 void write_base_uart(void)
 {
-    char string[] = "cont: ---Canal A1---- ---Canal A2----                                  \n";
+    char string[] =
+            "cont: ---Canal A1---- ---Canal A2----                                  \n";
     write_string_uart(string);
 }
 
-void write_joyst_uart(int avg_int_a1, float avg_flt_a1,
-                        int avg_int_a2, float avg_flt_a2)
+void write_joyst_uart(int avg_int_a1, float avg_flt_a1, int avg_int_a2,
+                      float avg_flt_a2)
 {
     char string_4[] = "....";
     char string_5[] = ".....";
@@ -237,19 +248,19 @@ void write_joyst_uart(int avg_int_a1, float avg_flt_a1,
     int_to_string_4_digits(string_4, avg_int_a1);
     write_string_uart(string_4);
     write_string_uart(" ---> ");
-    float_to_string(string_5, avg_flt_a1,3);
+    float_to_string(string_5, avg_flt_a1, 3);
     write_string_uart(string_5);
     write_string_uart("V     ");
 
     int_to_string_4_digits(string_4, avg_int_a2);
     write_string_uart(string_4);
     write_string_uart(" ---> ");
-    float_to_string(string_5, avg_flt_a2,3);
+    float_to_string(string_5, avg_flt_a2, 3);
     write_string_uart(string_5);
     write_string_uart("V\n");
 
     uart_counter++;
-    if(uart_counter >= 10000)
+    if (uart_counter >= 10000)
         uart_counter = 0;
 }
 
@@ -310,6 +321,28 @@ void servo_config(void)
     P2SEL |= BIT5;                      // P2.5 = TA2 output
 }
 
+void config_dma_adc(void)
+{
+//    DMACTL0 |= DMA0TSEL_20; // Disparo = UCA1RXIFG
+//    DMA0CTL = DMADT_0    | //Modo Simples
+//            DMADSTINCR_3 | //Ponteiro destino, incrementar
+//            DMASRCINCR_0 | //Ponteiro fonte fixo
+//            DMADSTBYTE   | //Destino opera com bytes
+//            DMASRCBYTE;    //Fonte opera com bytes
+//    DMA0SA = UCA1RXBUF_ADR; //Fonte = UCA1RXBUF
+//    DMA0DA = v1; //Destino = vetor v1
+//    DMA0SZ = QTD; //Quantidade de transferências
+//    DMA0CTL |= DMAEN; //Habilitar DMA1
+}
+
+void config_dma_servo(void){
+    // TO DO
+}
+
+void config_dma_serial(void){
+    // TO DO
+}
+
 void GPIO_config(void)
 {
     P1DIR |= BIT0;  //Led vermelho
@@ -323,50 +356,56 @@ void GPIO_config(void)
     P6OUT |= BIT3;
 }
 
-void int_to_string_4_digits(char string[], int number){
+void int_to_string_4_digits(char string[], int number)
+{
     string[0] = '0';
     string[0] = '1';
     string[0] = '2';
     string[0] = '3';
 
     char current;
-    int i, j=0;
-    for(i=1000; i>0; i/=10){
-        current = number/i;
-        string[++j] = current+ '0';
-        number -= current*i;
+    int i, j = 0;
+    for (i = 1000; i > 0; i /= 10)
+    {
+        current = number / i;
+        string[++j] = current + '0';
+        number -= current * i;
     }
 }
 
-void float_to_string(char string[], float flo, char precis){
+void float_to_string(char string[], float flo, char precis)
+{
     string[0] = 'd';
     string[1] = 'd';
     string[2] = 'd';
     string[3] = ',';
     string[4] = 'd';
 
-    if(precis < 1){
+    if (precis < 1)
+    {
         precis = 1;
     }
 
-    if(precis > 3){
+    if (precis > 3)
+    {
         precis = 3;
     }
 
-    flo = flo*1000;
-    string[4] = flo/1000+ '0';
-    int dec = ((int)flo)%1000;
+    flo = flo * 1000;
+    string[4] = flo / 1000 + '0';
+    int dec = ((int) flo) % 1000;
 
     int i;
     int j = 0;
     char current;
-    for(i = 100; i > 0; i/=10){
+    for (i = 100; i > 0; i /= 10)
+    {
         precis--;
-        current = dec/i;
-        string[++j] = current+ '0';
-        dec -= current*i;
+        current = dec / i;
+        string[++j] = current + '0';
+        dec -= current * i;
 
-        if(precis==0)
+        if (precis == 0)
             return;
     }
 
